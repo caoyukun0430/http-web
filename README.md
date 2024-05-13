@@ -69,3 +69,38 @@ func main() {
 	server.Run(":8080")
 }
 ```
+
+## Day 2 - Router
+
+
+What we learnt?
+
+1. Extend routing functions to support dynamic routing with /:name or /*. To achieve this, we modify the route table from a
+simple map to a trie tree, which parses the URL path into trie nodes.
+
+2. Write unit test for routing rules before running main function, this is important to decouple testing so that we can verify
+unit feature before running as a whole.
+
+```go
+func main() {
+	server := engine.New()
+	server.Get("/", func(c *engine.Context) {
+		c.HTML(http.StatusOK, "<h1>Hello Web</h1>")
+	})
+	server.Get("/hello", func(c *engine.Context) {
+		// expect /hello?name=tom
+		c.Plain(http.StatusOK, "hello %s, you're at %s\n", c.Query("name"), c.Path)
+	})
+
+	server.Get("/hello/:name", func(c *engine.Context) {
+		// expect /hello/tom
+		c.Plain(http.StatusOK, "hello %s, you're at %s\n", c.Param("name"), c.Path)
+	})
+
+	server.Get("/assets/*filepath", func(c *engine.Context) {
+		c.JSON(http.StatusOK, engine.H{"filepath": c.Param("filepath")})
+	})
+
+	server.Run(":8080")
+}
+```

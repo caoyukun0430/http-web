@@ -1,4 +1,4 @@
-module http-base
+module http-web
 
 go 1.19
 
