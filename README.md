@@ -70,8 +70,7 @@ func main() {
 }
 ```
 
-## Day 2 - Router
-
+## Day 3 - Router
 
 What we learnt?
 
@@ -103,4 +102,49 @@ func main() {
 
 	server.Run(":8080")
 }
+```
+
+## Day 4 - Group
+
+What we learnt?
+
+1. Add group management feature for routing based on prefix. So that we can controll
+nested routing pre prefix group and later will be convenient to add middlewares to routing groups
+we want. To achieve, all groups share the same Engine by including the Engine pointer into the
+RouterGroup struct.
+
+
+```go
+func main() {
+	server := engine.New()
+	server.Get("/index", func(c *engine.Context) {
+		c.HTML(http.StatusOK, "<h1>Index Page</h1>")
+	})
+	v1 := server.Group("/v1")
+	{
+		v1.Get("/", func(c *engine.Context) {
+			c.HTML(http.StatusOK, "<h1>Hello Gee</h1>")
+		})
+
+		v1.Get("/hello", func(c *engine.Context) {
+			// expect /hello?name=geektutu
+			c.Plain(http.StatusOK, "hello %s, you're at %s\n", c.Query("name"), c.Path)
+		})
+	}
+	v2 := server.Group("/v2")
+	{
+		v2.Get("/hello/:name", func(c *engine.Context) {
+			// expect /hello/geektutu
+			c.Plain(http.StatusOK, "hello %s, you're at %s\n", c.Param("name"), c.Path)
+		})
+		v2.Post("/login", func(c *engine.Context) {
+			c.JSON(http.StatusOK, engine.H{
+				"username": c.FormValue("username"),
+				"password": c.FormValue("password"),
+			})
+		})
+
+	}
+
+	server.Run(":8080")
 ```
