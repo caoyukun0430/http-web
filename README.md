@@ -148,3 +148,53 @@ func main() {
 
 	server.Run(":8080")
 ```
+
+## Day 5 - Middleware
+
+What we learnt?
+1. middleware, it's similar/kind of HandlerFunc that it context targeted and can be defined
+by user to record logs, calculate latency, ... Middleware is
+appended after the request is received and context is initialized.
+By defining Next() func inside cotext, we construct the stack-struct FILO middleware-chain,
+and each handler has freedom to choice to call Next() to split the work pre request and post
+request.
+
+```go
+func onlyForV2() engine.HandlerFunc {
+	return func(c *engine.Context) {
+		// Start timer
+		t := time.Now()
+		// if a server error occurred
+		c.Fail(500, "Internal Server Error")
+		// Calculate resolution time
+		log.Printf("[%d] %s in %v for group v2", c.StatusCode, c.Req.RequestURI, time.Since(t))
+	}
+}
+
+func main() {
+	server := engine.New()
+	server.AppendMid(engine.Logger()) // global midlleware
+	server.Get("/", func(c *engine.Context) {
+		c.HTML(http.StatusOK, "<h1>Hello Gee</h1>")
+	})
+
+	v2 := server.Group("/v2")
+	v2.AppendMid(onlyForV2()) // v2 group middleware
+	{
+		v2.Get("/hello/:name", func(c *engine.Context) {
+			// expect /hello/geektutu
+			c.Plain(http.StatusOK, "hello %s, you're at %s\n", c.Param("name"), c.Path)
+		})
+	}
+
+	server.Run(":8080")
+}
+// onlyForV2 executed before logger due to stack struct
+$ go run .
+2024/05/20 09:49:40 Route  GET - /
+2024/05/20 09:49:40 Route  GET - /v2/hello/:name
+HTTP server starting at :8080 ...
+2024/05/20 09:50:14 [500] /v2/hello/geektutu in 267µs for group v2
+2024/05/20 09:50:14 [500] /v2/hello/geektutu in 389.6µs
+exit status 0xc000013a
+```
