@@ -198,3 +198,97 @@ HTTP server starting at :8080 ...
 2024/05/20 09:50:14 [500] /v2/hello/geektutu in 389.6µs
 exit status 0xc000013a
 ```
+
+## Day 6 - HTTP template
+
+What we learnt?
+1. use http/template library to render on the server side with static files.
+Static files are mapped with dynamic routing /*filepath. Two rendering functions
+SetFuncMap and LoadHTMLGlob are defined for users to define custom render
+functions and load template files.
+
+```go
+type student struct {
+	Name string
+	Age  int8
+}
+
+func FormatAsDate(t time.Time) string {
+	year, month, day := t.Date()
+	return fmt.Sprintf("%d-%02d-%02d", year, month, day)
+}
+
+func main() {
+	r := engine.New()
+	r.AppendMid(engine.Logger())
+	r.SetFuncMap(template.FuncMap{
+		"FormatAsDate": FormatAsDate,
+	})
+	// load all .tmpl into engine
+	r.LoadHTMLGlob("templates/*")
+	// map .static/ to /assets URL pattern
+	r.Static("/assets", "./static")
+
+	// by default it renders css.tmpl
+	r.Get("/", func(c *engine.Context) {
+		c.HTML(http.StatusOK, "css.tmpl", nil)
+	})
+	stu1 := &student{Name: "Geektutu", Age: 20}
+	stu2 := &student{Name: "Jack", Age: 22}
+	r.Get("/students", func(c *engine.Context) {
+		c.HTML(http.StatusOK, "arr.tmpl", engine.H{
+			"title":  "engine",
+			"stuArr": [2]*student{stu1, stu2},
+		})
+	})
+
+	r.Get("/date", func(c *engine.Context) {
+		c.HTML(http.StatusOK, "custom_func.tmpl", engine.H{
+			"title": "engine",
+			"now":   time.Date(2019, 8, 17, 0, 0, 0, 0, time.UTC),
+		})
+	})
+
+	r.Run(":8080")
+```
+
+## Day 7 - Error Recovery and Trace
+What we learnt?
+1. Go panic recover mechanism and we wrote custom trace function to
+print stack trace when program panics for debugging in our middleware.
+
+```go
+// 2024/06/07 10:03:46 Route  GET - /
+// 2024/06/07 10:03:46 Route  GET - /panic
+// HTTP server starting at :8080 ...
+// 2024/06/07 10:03:59 runtime error: index out of range [100] with length 1
+// Traceback:      C:/Program Files/Go/src/runtime/panic.go:884
+//         C:/Program Files/Go/src/runtime/panic.go:113
+//         C:/Users//Documents/gostudy/http-web/day7-error/main.go:17
+//         C:/Users//Documents/gostudy/http-web/day7-error/engine/context.go:65
+//         C:/Users//Documents/gostudy/http-web/day7-error/engine/recovery.go:24
+//         C:/Users//Documents/gostudy/http-web/day7-error/engine/context.go:65
+//         C:/Users//Documents/gostudy/http-web/day7-error/engine/logger.go:15
+//         C:/Users//Documents/gostudy/http-web/day7-error/engine/context.go:65
+//         C:/Users//Documents/gostudy/http-web/day7-error/engine/router.go:101
+//         C:/Users//Documents/gostudy/http-web/day7-error/engine/engine.go:154
+//         C:/Program Files/Go/src/net/http/server.go:2948
+//         C:/Program Files/Go/src/net/http/server.go:1992
+//         C:/Program Files/Go/src/runtime/asm_amd64.s:1595
+
+// 2024/06/07 10:03:59 [500] /panic in 428.3µs
+
+func main() {
+	r := engine.Default()
+	r.Get("/", func(c *engine.Context) {
+		c.Plain(http.StatusOK, "Hello test\n")
+	})
+	// index out of range for testing Recovery()
+	r.Get("/panic", func(c *engine.Context) {
+		names := []string{"test"}
+		c.Plain(http.StatusOK, names[100])
+	})
+
+	r.Run(":8080")
+}
+```
